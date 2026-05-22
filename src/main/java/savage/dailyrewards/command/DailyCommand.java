@@ -5,9 +5,7 @@ import com.mojang.brigadier.context.CommandContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import savage.dailyrewards.config.ConfigManager;
@@ -48,78 +46,37 @@ public final class DailyCommand {
         try {
             ServerPlayer player = context.getSource().getPlayerOrException();
             PlayerRewardState state = PlayerStateManager.getOrCreateState(player.getUUID(), player.getGameProfile().name());
-            DailyRewardsConfig config = ConfigManager.getConfig();
             long currentDay = TimeUtils.getCurrentEpochDay();
 
-            int nextStreak = Math.min(7, state.currentStreak + 1);
-            String nextStreakKey = String.valueOf(nextStreak);
-            DailyRewardsConfig.RewardEntry nextReward = config.streakRewards.get(nextStreakKey);
-            if (nextReward == null) {
-                nextReward = new DailyRewardsConfig.RewardEntry("Day " + nextStreakKey + " Reward", 100.0, List.of());
-            }
-
-            // Streak star builder:
-            MutableComponent streakIndicator = Component.literal("");
-            for (int i = 1; i <= 7; i++) {
-                if (i <= state.currentStreak) {
-                    streakIndicator.append(Component.literal("★").withStyle(ChatFormatting.GOLD));
-                } else {
-                    streakIndicator.append(Component.literal("☆").withStyle(ChatFormatting.GRAY));
-                }
-                if (i < 7) {
-                    streakIndicator.append(Component.literal(" "));
-                }
-            }
-
             context.getSource().sendSystemMessage(
-                Component.literal("▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬")
-                    .withStyle(ChatFormatting.GOLD)
+                Component.literal("=== Daily Rewards Status ===").withStyle(ChatFormatting.GOLD)
             );
+            
             context.getSource().sendSystemMessage(
-                Component.literal("             DAILY REWARDS STATUS             ")
-                    .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
-            );
-            context.getSource().sendSystemMessage(
-                Component.literal("  Current Streak: ").withStyle(ChatFormatting.GRAY)
-                    .append(streakIndicator)
-                    .append(Component.literal(" (" + state.currentStreak + "/7 days)").withStyle(ChatFormatting.YELLOW))
-            );
-
-            String dayLabel = state.claimedToday ? "Tomorrow" : "Today";
-            context.getSource().sendSystemMessage(
-                Component.literal("  Next Reward (" + dayLabel + "): ").withStyle(ChatFormatting.GRAY)
-                    .append(Component.literal("Day " + nextStreakKey + " - " + nextReward.displayName).withStyle(ChatFormatting.LIGHT_PURPLE))
+                Component.literal("Current Streak: ").withStyle(ChatFormatting.YELLOW)
+                    .append(Component.literal(state.currentStreak + " / 7 days").withStyle(ChatFormatting.GREEN))
             );
 
             if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
                 context.getSource().sendSystemMessage(
-                    Component.literal("  Status: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal("Already claimed today!").withStyle(ChatFormatting.RED))
+                    Component.literal("You have already claimed today's reward!").withStyle(ChatFormatting.RED)
                 );
                 context.getSource().sendSystemMessage(
-                    Component.literal("  Come back tomorrow for your next reward.").withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC)
+                    Component.literal("Come back tomorrow for your next reward.").withStyle(ChatFormatting.GRAY)
                 );
             } else {
                 context.getSource().sendSystemMessage(
-                    Component.literal("  Status: ").withStyle(ChatFormatting.GRAY)
-                        .append(Component.literal("Ready to claim!").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD))
+                    Component.literal("✔ Your daily reward is ready to be claimed!").withStyle(ChatFormatting.GREEN)
                 );
-                
-                MutableComponent claimButton = Component.literal("  ▶ [CLICK HERE TO CLAIM REWARD] ◀")
-                    .withStyle(style -> style
-                        .withColor(ChatFormatting.GREEN)
-                        .withBold(true)
-                        .withClickEvent(new ClickEvent.RunCommand("/daily claim"))
-                        .withHoverEvent(new HoverEvent.ShowText(
-                            Component.literal("Click to claim your Day " + nextStreakKey + " Reward!").withStyle(ChatFormatting.GOLD)
-                        ))
-                    );
-                context.getSource().sendSystemMessage(claimButton);
+                context.getSource().sendSystemMessage(
+                    Component.literal("Type ").withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal("/daily claim").withStyle(ChatFormatting.LIGHT_PURPLE))
+                        .append(Component.literal(" to claim it.").withStyle(ChatFormatting.YELLOW))
+                );
             }
 
             context.getSource().sendSystemMessage(
-                Component.literal("▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬")
-                    .withStyle(ChatFormatting.GOLD)
+                Component.literal("===========================").withStyle(ChatFormatting.GOLD)
             );
         } catch (Exception e) {
             context.getSource().sendFailure(Component.literal("Only online players can run this command."));
@@ -136,8 +93,7 @@ public final class DailyCommand {
 
             if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
                 context.getSource().sendFailure(
-                    Component.literal("[Daily Rewards] You have already claimed today's reward!")
-                        .withStyle(ChatFormatting.RED)
+                    Component.literal("You have already claimed today's reward!").withStyle(ChatFormatting.RED)
                 );
                 return 1;
             }
@@ -179,10 +135,10 @@ public final class DailyCommand {
             // Construct unified beautiful claim message
             MutableComponent message = Component.literal("[Daily Rewards] ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                 .append(Component.literal("Successfully claimed ").withStyle(ChatFormatting.GREEN))
-                .append(Component.literal("Day " + state.currentStreak + " Reward: " + reward.displayName).withStyle(ChatFormatting.YELLOW));
+                .append(Component.literal(reward.displayName).withStyle(ChatFormatting.YELLOW));
             
             if (formattedDeposit != null) {
-                message.append(Component.literal(" (Deposited ").withStyle(ChatFormatting.GREEN))
+                message.append(Component.literal("! (Deposited ").withStyle(ChatFormatting.GREEN))
                        .append(formattedDeposit.copy().withStyle(ChatFormatting.GOLD))
                        .append(Component.literal(")").withStyle(ChatFormatting.GREEN));
             } else {
@@ -193,8 +149,7 @@ public final class DailyCommand {
 
         } catch (Exception e) {
             context.getSource().sendFailure(
-                Component.literal("[Daily Rewards] An error occurred while claiming your reward.")
-                    .withStyle(ChatFormatting.RED)
+                Component.literal("An error occurred while claiming your reward.").withStyle(ChatFormatting.RED)
             );
         }
         return 1;
