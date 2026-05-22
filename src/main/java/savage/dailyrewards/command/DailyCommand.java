@@ -49,7 +49,7 @@ public final class DailyCommand {
             DailyRewardsConfig config = ConfigManager.getConfig();
             long currentDay = TimeUtils.getCurrentEpochDay();
 
-            int maxDays = config.streakRewards.isEmpty() ? 7 : config.streakRewards.size();
+            int maxDays = config.rewards.isEmpty() ? 7 : config.rewards.size();
 
             // Calculate next streak dynamically with rollover
             int nextStreak;
@@ -61,10 +61,12 @@ public final class DailyCommand {
                     : 1;
             }
 
-            String nextStreakKey = String.valueOf(nextStreak);
-            DailyRewardsConfig.RewardEntry nextReward = config.streakRewards.get(nextStreakKey);
-            if (nextReward == null) {
-                nextReward = new DailyRewardsConfig.RewardEntry("Day " + nextStreakKey + " Reward", 100.0, List.of());
+            int nextIndex = nextStreak - 1;
+            DailyRewardsConfig.RewardEntry nextReward;
+            if (nextIndex >= 0 && nextIndex < config.rewards.size()) {
+                nextReward = config.rewards.get(nextIndex);
+            } else {
+                nextReward = new DailyRewardsConfig.RewardEntry("Day " + nextStreak + " Reward", 100.0, List.of());
             }
 
             context.getSource().sendSystemMessage(
@@ -117,7 +119,7 @@ public final class DailyCommand {
                 return 1;
             }
 
-            int maxDays = config.streakRewards.isEmpty() ? 7 : config.streakRewards.size();
+            int maxDays = config.rewards.isEmpty() ? 7 : config.rewards.size();
 
             // Streak determination with dynamic rollover
             if (state.lastClaimEpochDay == currentDay - 1) {
@@ -132,10 +134,11 @@ public final class DailyCommand {
                 state.currentStreak = 1;
             }
 
-            String streakKey = String.valueOf(state.currentStreak);
-            DailyRewardsConfig.RewardEntry reward = config.streakRewards.get(streakKey);
-
-            if (reward == null) {
+            int index = state.currentStreak - 1;
+            DailyRewardsConfig.RewardEntry reward;
+            if (index >= 0 && index < config.rewards.size()) {
+                reward = config.rewards.get(index);
+            } else {
                 reward = new DailyRewardsConfig.RewardEntry("Day " + state.currentStreak + " Reward", 100.0, List.of());
             }
 
