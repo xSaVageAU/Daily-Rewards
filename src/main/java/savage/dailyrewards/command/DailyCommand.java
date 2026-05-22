@@ -46,7 +46,26 @@ public final class DailyCommand {
         try {
             ServerPlayer player = context.getSource().getPlayerOrException();
             PlayerRewardState state = PlayerStateManager.getOrCreateState(player.getUUID(), player.getGameProfile().name());
+            DailyRewardsConfig config = ConfigManager.getConfig();
             long currentDay = TimeUtils.getCurrentEpochDay();
+
+            int maxDays = config.streakRewards.isEmpty() ? 7 : config.streakRewards.size();
+
+            // Calculate next streak dynamically with rollover
+            int nextStreak;
+            if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
+                nextStreak = (state.currentStreak >= maxDays) ? 1 : state.currentStreak + 1;
+            } else {
+                nextStreak = (state.lastClaimEpochDay == currentDay - 1) 
+                    ? ((state.currentStreak >= maxDays) ? 1 : state.currentStreak + 1)
+                    : 1;
+            }
+
+            String nextStreakKey = String.valueOf(nextStreak);
+            DailyRewardsConfig.RewardEntry nextReward = config.streakRewards.get(nextStreakKey);
+            if (nextReward == null) {
+                nextReward = new DailyRewardsConfig.RewardEntry("Day " + nextStreakKey + " Reward", 100.0, List.of());
+            }
 
             context.getSource().sendSystemMessage(
                 Component.literal("=== Daily Rewards Status ===").withStyle(ChatFormatting.GOLD)
@@ -54,7 +73,7 @@ public final class DailyCommand {
             
             context.getSource().sendSystemMessage(
                 Component.literal("Current Streak: ").withStyle(ChatFormatting.YELLOW)
-                    .append(Component.literal(state.currentStreak + " / 7 days").withStyle(ChatFormatting.GREEN))
+                    .append(Component.literal(state.currentStreak + " / " + maxDays + " days").withStyle(ChatFormatting.GREEN))
             );
 
             if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
@@ -98,10 +117,16 @@ public final class DailyCommand {
                 return 1;
             }
 
-            // Streak determination
+            int maxDays = config.streakRewards.isEmpty() ? 7 : config.streakRewards.size();
+
+            // Streak determination with dynamic rollover
             if (state.lastClaimEpochDay == currentDay - 1) {
-                // Consecutive check-in: Increment streak (max 7)
-                state.currentStreak = Math.min(7, state.currentStreak + 1);
+                // Consecutive check-in: Increment streak, rollover to 1 if we exceed maxDays
+                if (state.currentStreak >= maxDays) {
+                    state.currentStreak = 1;
+                } else {
+                    state.currentStreak = state.currentStreak + 1;
+                }
             } else {
                 // Streak broken or brand new: Reset to Day 1
                 state.currentStreak = 1;
