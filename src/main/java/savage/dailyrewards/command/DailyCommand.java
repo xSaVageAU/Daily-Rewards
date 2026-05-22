@@ -14,7 +14,13 @@ import savage.dailyrewards.data.PlayerRewardState;
 import savage.dailyrewards.data.PlayerStateManager;
 import savage.dailyrewards.integration.EconomyIntegration;
 import savage.dailyrewards.util.TimeUtils;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,23 +57,6 @@ public final class DailyCommand {
 
             int maxDays = config.rewards.isEmpty() ? 7 : config.rewards.size();
 
-            // Calculate next streak dynamically with rollover
-            int nextStreak;
-            if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
-                nextStreak = (state.currentStreak >= maxDays) ? 1 : state.currentStreak + 1;
-            } else {
-                nextStreak = (state.lastClaimEpochDay == currentDay - 1) 
-                    ? ((state.currentStreak >= maxDays) ? 1 : state.currentStreak + 1)
-                    : 1;
-            }
-
-            int nextIndex = nextStreak - 1;
-            DailyRewardsConfig.RewardEntry nextReward;
-            if (nextIndex >= 0 && nextIndex < config.rewards.size()) {
-                nextReward = config.rewards.get(nextIndex);
-            } else {
-                nextReward = new DailyRewardsConfig.RewardEntry("Day " + nextStreak + " Reward", 100.0, List.of());
-            }
 
             context.getSource().sendSystemMessage(
                 Component.literal("=== Daily Rewards Status ===").withStyle(ChatFormatting.GOLD)
@@ -160,6 +149,47 @@ public final class DailyCommand {
             double payout = reward.economyPayout;
             Component formattedDeposit = EconomyIntegration.payout(player, payout);
 
+            // Deliver native items
+            List<Component> claimedItemComponents = new ArrayList<>();
+            if (reward.items != null) {
+                for (String itemStr : reward.items) {
+                    if (itemStr == null || itemStr.trim().isEmpty()) {
+                        continue;
+                    }
+                    
+                    String[] parts = itemStr.trim().split("\\s+");
+                    String itemIdStr = parts[0];
+                    int count = 1;
+                    if (parts.length > 1) {
+                        try {
+                            count = Integer.parseInt(parts[1]);
+                        } catch (NumberFormatException e) {
+                            // Leave as 1
+                        }
+                    }
+                    
+                    try {
+                        Identifier itemId = Identifier.parse(itemIdStr);
+                        Item item = BuiltInRegistries.ITEM.get(itemId)
+                            .map(net.minecraft.core.Holder::value)
+                            .orElse(Items.AIR);
+                        if (item != Items.AIR) {
+                            ItemStack stack = new ItemStack(item, count);
+                            boolean added = player.getInventory().add(stack);
+                            if (!added || !stack.isEmpty()) {
+                                player.drop(stack, false);
+                            }
+                            
+                            MutableComponent itemText = Component.literal(count + "x ")
+                                .append(Component.translatable(item.getDescriptionId()).withStyle(ChatFormatting.AQUA));
+                            claimedItemComponents.add(itemText);
+                        }
+                    } catch (Exception e) {
+                        // Ignore invalid item ID
+                    }
+                }
+            }
+
             // Construct unified beautiful claim message
             MutableComponent message = Component.literal("[Daily Rewards] ").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD)
                 .append(Component.literal("Successfully claimed ").withStyle(ChatFormatting.GREEN))
@@ -174,6 +204,17 @@ public final class DailyCommand {
             }
 
             player.sendSystemMessage(message);
+
+            if (!claimedItemComponents.isEmpty()) {
+                MutableComponent itemsMessage = Component.literal("  » Received: ").withStyle(ChatFormatting.DARK_GREEN);
+                for (int i = 0; i < claimedItemComponents.size(); i++) {
+                    if (i > 0) {
+                        itemsMessage.append(Component.literal(", ").withStyle(ChatFormatting.GRAY));
+                    }
+                    itemsMessage.append(claimedItemComponents.get(i));
+                }
+                player.sendSystemMessage(itemsMessage);
+            }
 
         } catch (Exception e) {
             context.getSource().sendFailure(

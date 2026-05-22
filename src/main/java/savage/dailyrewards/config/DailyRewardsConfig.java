@@ -21,7 +21,7 @@ public class DailyRewardsConfig {
         rewards.add(new RewardEntry("Day 4 Reward", 400.0, List.of()));
         rewards.add(new RewardEntry("Day 5 Reward", 500.0, List.of()));
         rewards.add(new RewardEntry("Day 6 Reward", 600.0, List.of()));
-        rewards.add(new RewardEntry("Day 7 Reward (Legendary)", 1000.0, List.of("give %player% diamond 1")));
+        rewards.add(new RewardEntry("Day 7 Reward (Legendary)", 1000.0, List.of("minecraft:diamond 1"), List.of()));
     }
 
     /**
@@ -30,19 +30,26 @@ public class DailyRewardsConfig {
     public static class RewardEntry {
         public String displayName;
         public double economyPayout;
-        public List<String> commands;
+        public List<String> items = new ArrayList<>();
+        public List<String> commands = new ArrayList<>();
 
         // Required default constructor for serialization
         public RewardEntry() {
             this.displayName = "Daily Reward";
             this.economyPayout = 100.0;
+            this.items = new ArrayList<>();
             this.commands = new ArrayList<>();
         }
 
         public RewardEntry(String displayName, double economyPayout, List<String> commands) {
+            this(displayName, economyPayout, new ArrayList<>(), commands);
+        }
+
+        public RewardEntry(String displayName, double economyPayout, List<String> items, List<String> commands) {
             this.displayName = displayName;
             this.economyPayout = economyPayout;
-            this.commands = commands;
+            this.items = items != null ? items : new ArrayList<>();
+            this.commands = commands != null ? commands : new ArrayList<>();
         }
     }
 }

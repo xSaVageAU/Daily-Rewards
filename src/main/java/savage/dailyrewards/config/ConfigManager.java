@@ -49,44 +49,52 @@ public final class ConfigManager {
             # [[rewards]]
             # displayName = "Display Name in Chat"
             # economyPayout = <amount_to_deposit>
+            # items = ["minecraft:item_id count", "minecraft:another_item_id"]
             # commands = ["list", "of", "commands", "to", "run"]
             
             [[rewards]]
             displayName = "Day 1 Reward"
             economyPayout = 100.0
+            items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 2 Reward"
             economyPayout = 200.0
+            items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 3 Reward"
             economyPayout = 300.0
+            items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 4 Reward"
             economyPayout = 400.0
+            items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 5 Reward"
             economyPayout = 500.0
+            items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 6 Reward"
             economyPayout = 600.0
+            items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 7 Reward (Legendary)"
             economyPayout = 1000.0
-            commands = [
-                "give %player% diamond 1"
+            items = [
+                "minecraft:diamond 1"
             ]
+            commands = []
             """;
 
     private ConfigManager() {
@@ -147,11 +155,15 @@ public final class ConfigManager {
                             Long payoutLong = rewardTable.getLong("economyPayout");
                             economyPayout = payoutLong != null ? payoutLong.doubleValue() : 100.0;
                         }
+                        List<String> items = rewardTable.getList("items");
+                        if (items == null) {
+                            items = new ArrayList<>();
+                        }
                         List<String> commands = rewardTable.getList("commands");
                         if (commands == null) {
                             commands = new ArrayList<>();
                         }
-                        rewards.add(new DailyRewardsConfig.RewardEntry(displayName, economyPayout, commands));
+                        rewards.add(new DailyRewardsConfig.RewardEntry(displayName, economyPayout, items, commands));
                     }
                 }
                 if (!rewards.isEmpty()) {
