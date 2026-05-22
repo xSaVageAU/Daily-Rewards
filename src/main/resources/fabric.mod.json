@@ -1,0 +1,31 @@
+{
+	"schemaVersion": 1,
+	"id": "daily-rewards",
+	"version": "${version}",
+	"name": "Daily Rewards",
+	"description": "A daily rewards mod integrated with Common Economy by Patbox.",
+	"authors": [
+		"xSaVageAU"
+	],
+	"contact": {
+		"homepage": "https://github.com/xSaVageAU/daily-rewards",
+		"sources": "https://github.com/xSaVageAU/daily-rewards"
+	},
+	"license": "MIT",
+	"icon": "assets/daily-rewards/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"savage.dailyrewards.DailyRewards"
+		]
+	},
+	"mixins": [
+		"daily-rewards.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": ">=26.1",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
