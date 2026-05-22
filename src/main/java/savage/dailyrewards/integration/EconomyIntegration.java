@@ -2,12 +2,17 @@ package savage.dailyrewards.integration;
 
 import eu.pb4.common.economy.api.CommonEconomy;
 import eu.pb4.common.economy.api.EconomyAccount;
+import eu.pb4.common.economy.api.EconomyCurrency;
+import eu.pb4.common.economy.api.EconomyProvider;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import savage.dailyrewards.DailyRewards;
+import savage.dailyrewards.config.ConfigManager;
+import savage.dailyrewards.config.DailyRewardsConfig;
 
 import java.math.BigInteger;
-import java.util.Collection;
 
 /**
  * Handles communication and transactions with Patbox's Common Economy API.
@@ -22,43 +27,72 @@ public final class EconomyIntegration {
      * Executes the daily reward deposit for a player via the Common Economy API.
      *
      * @param player the player receiving the payout
-     * @param amount the deposit amount in dollars
+     * @param amount the deposit amount
      */
     public static void payout(ServerPlayer player, double amount) {
         try {
-            var server = player.level() instanceof net.minecraft.server.level.ServerLevel 
-                ? ((net.minecraft.server.level.ServerLevel) player.level()).getServer() 
+            var server = player.level() instanceof ServerLevel 
+                ? ((ServerLevel) player.level()).getServer() 
                 : null;
             if (server == null) {
                 DailyRewards.LOGGER.error("MinecraftServer was null when trying to execute payout for {}", player.getGameProfile().name());
                 return;
             }
 
-            // Retrieve accounts associated with the player from registered economy providers
-            Collection<EconomyAccount> accounts = CommonEconomy.getAccounts(server, player.getGameProfile());
-            if (accounts.isEmpty()) {
-                DailyRewards.LOGGER.warn("No active economy accounts found for player: {}", player.getGameProfile().name());
-                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: No economy provider found. Cash reward could not be paid."));
+            DailyRewardsConfig config = ConfigManager.getConfig();
+            Identifier currencyId = Identifier.fromNamespaceAndPath(config.economyProvider, config.currencyId);
+
+            // 1. Get Provider by Namespace
+            EconomyProvider provider = CommonEconomy.getProvider(currencyId.getNamespace());
+            if (provider == null) {
+                DailyRewards.LOGGER.warn("Economy provider not found: {}", currencyId.getNamespace());
+                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Economy provider '" + currencyId.getNamespace() + "' not found. Payout failed."));
                 return;
             }
 
-            // Pick the first registered economy account (e.g. Savs Common Economy account)
-            EconomyAccount account = accounts.iterator().next();
+            // 2. Get Currency from Provider
+            EconomyCurrency currency = provider.getCurrency(server, currencyId.getPath());
+            if (currency == null) {
+                // Try full ID if path fails
+                currency = provider.getCurrency(server, currencyId.toString());
+            }
+
+            if (currency == null) {
+                DailyRewards.LOGGER.warn("Currency not found: {} in provider {}", currencyId.getPath(), currencyId.getNamespace());
+                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Currency '" + currencyId.getPath() + "' not found. Payout failed."));
+                return;
+            }
+
+            // 3. Get Default Account ID
+            var accountId = provider.defaultAccount(server, player.getGameProfile(), currency);
+            if (accountId == null) {
+                DailyRewards.LOGGER.warn("Default account ID is null for player {}", player.getGameProfile().name());
+                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Economy account not found. Payout failed."));
+                return;
+            }
+
+            // 4. Get Account
+            EconomyAccount account = provider.getAccount(server, player.getGameProfile(), accountId);
             if (account == null) {
-                DailyRewards.LOGGER.warn("Failed to retrieve a valid economy account for player: {}", player.getGameProfile().name());
-                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Economy account was null."));
+                DailyRewards.LOGGER.warn("Failed to retrieve economy account for player: {}", player.getGameProfile().name());
+                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Economy account was null. Payout failed."));
                 return;
             }
 
-            // Convert payout double to cents (multiply by 100) because common-economy-api works in raw whole units
-            // (e.g. cents) as defined in standard setups like SavsCommonEconomy.
-            // 1.00 Dollar = 100 Cents
-            long cents = Math.round(amount * 100.0);
-            BigInteger value = BigInteger.valueOf(cents);
+            // Parse currency value
+            BigInteger rawAmount = currency.parseValue(String.valueOf(amount));
+            if (rawAmount == null) {
+                rawAmount = BigInteger.ZERO;
+            }
 
             // Execute deposit
-            account.increaseBalance(value);
-            DailyRewards.LOGGER.info("Successfully paid ${} to player {}", amount, player.getGameProfile().name());
+            account.increaseBalance(rawAmount);
+            
+            // Format currency value cleanly using Common Economy Component representation
+            Component formatted = currency.formatValueComponent(rawAmount, false);
+            player.sendSystemMessage(Component.literal("§a[Daily Rewards] §2Deposited ").append(formatted).append(Component.literal(" §2into your account.")));
+            
+            DailyRewards.LOGGER.info("Successfully paid {} to player {}", formatted.getString(), player.getGameProfile().name());
 
         } catch (Exception e) {
             DailyRewards.LOGGER.error("Failed to execute economy payout for player {}", player.getGameProfile().name(), e);

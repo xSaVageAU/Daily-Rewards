@@ -12,6 +12,8 @@ public class DailyRewardsConfig {
 
     public int resetHour = 0;
     public int requiredPlaytimeSeconds = 600; // Default 10 minutes
+    public String economyProvider = "savs_common_economy";
+    public String currencyId = "dollar";
     public Map<String, RewardEntry> streakRewards = new HashMap<>();
 
     public DailyRewardsConfig() {
