@@ -1,9 +1,14 @@
 package savage.dailyrewards;
 
 import net.fabricmc.api.ModInitializer;
-
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import savage.dailyrewards.command.DailyCommand;
+import savage.dailyrewards.config.ConfigManager;
+import savage.dailyrewards.data.PlayerStateManager;
+import savage.dailyrewards.tracker.PlaytimeTracker;
 
 public class DailyRewards implements ModInitializer {
 	public static final String MOD_ID = "daily-rewards";
@@ -15,10 +20,24 @@ public class DailyRewards implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+		// Load config and player database
+		ConfigManager.load();
+		PlayerStateManager.load();
 
-		LOGGER.info("Hello Fabric world!");
+		// Register playtime tracking engine
+		PlaytimeTracker.register();
+
+		// Register commands
+		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
+			DailyCommand.register(dispatcher);
+		});
+
+		// Save state database upon server shutdown
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			LOGGER.info("Stopping and saving daily rewards player database...");
+			PlayerStateManager.shutdown();
+		});
+
+		LOGGER.info("Daily Rewards Mod initialized successfully!");
 	}
 }
