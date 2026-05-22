@@ -118,9 +118,8 @@ public final class PlayerStateManager {
         }
 
         // Daily Reset Check:
-        // If their last active day is in the past, reset daily playtime and claim availability.
+        // If their last active day is in the past, reset claim availability.
         if (state.lastActiveEpochDay < currentDay) {
-            state.playtimeTodaySeconds = 0;
             state.claimedToday = false;
             state.lastActiveEpochDay = currentDay;
             save(); // Trigger background write for state transition

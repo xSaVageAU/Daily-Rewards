@@ -4,6 +4,7 @@ import eu.pb4.common.economy.api.CommonEconomy;
 import eu.pb4.common.economy.api.EconomyAccount;
 import eu.pb4.common.economy.api.EconomyCurrency;
 import eu.pb4.common.economy.api.EconomyProvider;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -28,15 +29,16 @@ public final class EconomyIntegration {
      *
      * @param player the player receiving the payout
      * @param amount the deposit amount
+     * @return the formatted Component representing the deposit amount, or null if failed
      */
-    public static void payout(ServerPlayer player, double amount) {
+    public static Component payout(ServerPlayer player, double amount) {
         try {
             var server = player.level() instanceof ServerLevel 
                 ? ((ServerLevel) player.level()).getServer() 
                 : null;
             if (server == null) {
                 DailyRewards.LOGGER.error("MinecraftServer was null when trying to execute payout for {}", player.getGameProfile().name());
-                return;
+                return null;
             }
 
             DailyRewardsConfig config = ConfigManager.getConfig();
@@ -46,8 +48,11 @@ public final class EconomyIntegration {
             EconomyProvider provider = CommonEconomy.getProvider(currencyId.getNamespace());
             if (provider == null) {
                 DailyRewards.LOGGER.warn("Economy provider not found: {}", currencyId.getNamespace());
-                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Economy provider '" + currencyId.getNamespace() + "' not found. Payout failed."));
-                return;
+                player.sendSystemMessage(
+                    Component.literal("[Daily Rewards] Warning: Economy provider '" + currencyId.getNamespace() + "' not found. Payout failed.")
+                        .withStyle(ChatFormatting.RED)
+                );
+                return null;
             }
 
             // 2. Get Currency from Provider
@@ -59,24 +64,33 @@ public final class EconomyIntegration {
 
             if (currency == null) {
                 DailyRewards.LOGGER.warn("Currency not found: {} in provider {}", currencyId.getPath(), currencyId.getNamespace());
-                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Currency '" + currencyId.getPath() + "' not found. Payout failed."));
-                return;
+                player.sendSystemMessage(
+                    Component.literal("[Daily Rewards] Warning: Currency '" + currencyId.getPath() + "' not found. Payout failed.")
+                        .withStyle(ChatFormatting.RED)
+                );
+                return null;
             }
 
             // 3. Get Default Account ID
             var accountId = provider.defaultAccount(server, player.getGameProfile(), currency);
             if (accountId == null) {
                 DailyRewards.LOGGER.warn("Default account ID is null for player {}", player.getGameProfile().name());
-                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Economy account not found. Payout failed."));
-                return;
+                player.sendSystemMessage(
+                    Component.literal("[Daily Rewards] Warning: Economy account not found. Payout failed.")
+                        .withStyle(ChatFormatting.RED)
+                );
+                return null;
             }
 
             // 4. Get Account
             EconomyAccount account = provider.getAccount(server, player.getGameProfile(), accountId);
             if (account == null) {
                 DailyRewards.LOGGER.warn("Failed to retrieve economy account for player: {}", player.getGameProfile().name());
-                player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cWarning: Economy account was null. Payout failed."));
-                return;
+                player.sendSystemMessage(
+                    Component.literal("[Daily Rewards] Warning: Economy account was null. Payout failed.")
+                        .withStyle(ChatFormatting.RED)
+                );
+                return null;
             }
 
             // Parse currency value
@@ -90,13 +104,17 @@ public final class EconomyIntegration {
             
             // Format currency value cleanly using Common Economy Component representation
             Component formatted = currency.formatValueComponent(rawAmount, false);
-            player.sendSystemMessage(Component.literal("§a[Daily Rewards] §2Deposited ").append(formatted).append(Component.literal(" §2into your account.")));
-            
             DailyRewards.LOGGER.info("Successfully paid {} to player {}", formatted.getString(), player.getGameProfile().name());
+            
+            return formatted;
 
         } catch (Exception e) {
             DailyRewards.LOGGER.error("Failed to execute economy payout for player {}", player.getGameProfile().name(), e);
-            player.sendSystemMessage(Component.literal("§e[Daily Rewards] §cAn unexpected error occurred during your economy payout."));
+            player.sendSystemMessage(
+                Component.literal("[Daily Rewards] An unexpected error occurred during your economy payout.")
+                    .withStyle(ChatFormatting.RED)
+            );
+            return null;
         }
     }
 }

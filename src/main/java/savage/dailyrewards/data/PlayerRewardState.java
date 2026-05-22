@@ -9,7 +9,6 @@ public class PlayerRewardState {
     public long lastClaimEpochDay;
     public long lastActiveEpochDay;
     public int currentStreak;
-    public int playtimeTodaySeconds;
     public boolean claimedToday;
 
     // Required default constructor for GSON serialization
@@ -18,7 +17,6 @@ public class PlayerRewardState {
         this.lastClaimEpochDay = 0;
         this.lastActiveEpochDay = 0;
         this.currentStreak = 0;
-        this.playtimeTodaySeconds = 0;
         this.claimedToday = false;
     }
 
@@ -27,7 +25,6 @@ public class PlayerRewardState {
         this.lastClaimEpochDay = 0;
         this.lastActiveEpochDay = 0;
         this.currentStreak = 0;
-        this.playtimeTodaySeconds = 0;
         this.claimedToday = false;
     }
 }

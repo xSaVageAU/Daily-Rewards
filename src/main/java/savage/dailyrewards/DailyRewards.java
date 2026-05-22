@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import savage.dailyrewards.command.DailyCommand;
 import savage.dailyrewards.config.ConfigManager;
 import savage.dailyrewards.data.PlayerStateManager;
-import savage.dailyrewards.tracker.PlaytimeTracker;
 
 public class DailyRewards implements ModInitializer {
 	public static final String MOD_ID = "daily-rewards";
@@ -23,9 +22,6 @@ public class DailyRewards implements ModInitializer {
 		// Load config and player database
 		ConfigManager.load();
 		PlayerStateManager.load();
-
-		// Register playtime tracking engine
-		PlaytimeTracker.register();
 
 		// Register commands
 		CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
