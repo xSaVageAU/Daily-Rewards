@@ -17,16 +17,13 @@ public class DailyRewardsConfig {
 
     public DailyRewardsConfig() {
         // Initialize default rewards for a 7-day cycle
-        streakRewards.put("1", new RewardEntry("Day 1 Reward", 100.0, List.of("give %player% coal 5")));
-        streakRewards.put("2", new RewardEntry("Day 2 Reward", 200.0, List.of("give %player% iron_ingot 3")));
-        streakRewards.put("3", new RewardEntry("Day 3 Reward", 300.0, List.of("give %player% gold_ingot 2")));
-        streakRewards.put("4", new RewardEntry("Day 4 Reward", 400.0, List.of("give %player% lapis_lazuli 4")));
-        streakRewards.put("5", new RewardEntry("Day 5 Reward", 500.0, List.of("give %player% redstone 6")));
-        streakRewards.put("6", new RewardEntry("Day 6 Reward", 600.0, List.of("give %player% emerald 1")));
-        streakRewards.put("7", new RewardEntry("Day 7 Reward (Legendary)", 1000.0, List.of(
-            "give %player% diamond 1", 
-            "playsound minecraft:ui.toast.challenge_complete master @s"
-        )));
+        streakRewards.put("1", new RewardEntry("Day 1 Reward", 100.0, List.of()));
+        streakRewards.put("2", new RewardEntry("Day 2 Reward", 200.0, List.of()));
+        streakRewards.put("3", new RewardEntry("Day 3 Reward", 300.0, List.of()));
+        streakRewards.put("4", new RewardEntry("Day 4 Reward", 400.0, List.of()));
+        streakRewards.put("5", new RewardEntry("Day 5 Reward", 500.0, List.of()));
+        streakRewards.put("6", new RewardEntry("Day 6 Reward", 600.0, List.of()));
+        streakRewards.put("7", new RewardEntry("Day 7 Reward (Legendary)", 1000.0, List.of("give %player% diamond 1")));
     }
 
     /**
