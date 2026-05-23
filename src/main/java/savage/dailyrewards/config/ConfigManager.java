@@ -41,56 +41,69 @@ public final class ConfigManager {
             # Default: "dollar"
             currencyId = "dollar"
             
-            # --- Streak Rewards ---
-            # Configure rewards for each consecutive day of the streak.
-            # The player will progress through these in the exact order they are listed below.
-            # Add or remove blocks as desired! The mod will dynamically handle any number of days.
+            # The mode of the daily rewards system.
+            # Options: "STREAK" (sequential daily progression) or "RANDOM" (weighted mystery pool)
+            # Default: "STREAK"
+            mode = "STREAK"
+            
+            # --- Streak/Pool Rewards ---
+            # In "STREAK" mode: players receive rewards sequentially in list order.
+            # In "RANDOM" mode: players receive a random reward from the pool based on weight.
+            # Add or remove blocks as desired! The mod will dynamically handle any number of days/entries.
             # Format:
             # [[rewards]]
             # displayName = "Display Name in Chat"
             # economyPayout = <amount_to_deposit>
+            # weight = <relative_probability_in_random_mode> (default: 100)
             # items = ["minecraft:item_id count", "minecraft:another_item_id"]
             # commands = ["list", "of", "commands", "to", "run"]
             
             [[rewards]]
             displayName = "Day 1 Reward"
             economyPayout = 100.0
+            weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 2 Reward"
             economyPayout = 200.0
+            weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 3 Reward"
             economyPayout = 300.0
+            weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 4 Reward"
             economyPayout = 400.0
+            weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 5 Reward"
             economyPayout = 500.0
+            weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 6 Reward"
             economyPayout = 600.0
+            weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 7 Reward (Legendary)"
             economyPayout = 1000.0
+            weight = 10
             items = [
                 "minecraft:diamond 1"
             ]
@@ -141,6 +154,13 @@ public final class ConfigManager {
             if (toml.contains("currencyId")) {
                 loaded.currencyId = toml.getString("currencyId");
             }
+            if (toml.contains("mode")) {
+                try {
+                    loaded.mode = DailyRewardsConfig.RewardMode.valueOf(toml.getString("mode").toUpperCase());
+                } catch (Exception e) {
+                    loaded.mode = DailyRewardsConfig.RewardMode.STREAK;
+                }
+            }
 
             if (toml.contains("rewards")) {
                 List<Toml> rewardsTables = toml.getTables("rewards");
@@ -155,6 +175,8 @@ public final class ConfigManager {
                             Long payoutLong = rewardTable.getLong("economyPayout");
                             economyPayout = payoutLong != null ? payoutLong.doubleValue() : 100.0;
                         }
+                        Long weightLong = rewardTable.getLong("weight");
+                        int weight = weightLong != null ? weightLong.intValue() : 100;
                         List<String> items = rewardTable.getList("items");
                         if (items == null) {
                             items = new ArrayList<>();
@@ -163,7 +185,7 @@ public final class ConfigManager {
                         if (commands == null) {
                             commands = new ArrayList<>();
                         }
-                        rewards.add(new DailyRewardsConfig.RewardEntry(displayName, economyPayout, items, commands));
+                        rewards.add(new DailyRewardsConfig.RewardEntry(displayName, economyPayout, weight, items, commands));
                     }
                 }
                 if (!rewards.isEmpty()) {

@@ -8,20 +8,26 @@ import java.util.List;
  */
 public class DailyRewardsConfig {
 
+    public enum RewardMode {
+        STREAK,
+        RANDOM
+    }
+
     public int resetHour = 0;
     public String economyProvider = "savs_common_economy";
     public String currencyId = "dollar";
+    public RewardMode mode = RewardMode.STREAK;
     public List<RewardEntry> rewards = new ArrayList<>();
 
     public DailyRewardsConfig() {
         // Initialize default rewards for a 7-day cycle in sequential order
-        rewards.add(new RewardEntry("Day 1 Reward", 100.0, List.of()));
-        rewards.add(new RewardEntry("Day 2 Reward", 200.0, List.of()));
-        rewards.add(new RewardEntry("Day 3 Reward", 300.0, List.of()));
-        rewards.add(new RewardEntry("Day 4 Reward", 400.0, List.of()));
-        rewards.add(new RewardEntry("Day 5 Reward", 500.0, List.of()));
-        rewards.add(new RewardEntry("Day 6 Reward", 600.0, List.of()));
-        rewards.add(new RewardEntry("Day 7 Reward (Legendary)", 1000.0, List.of("minecraft:diamond 1"), List.of()));
+        rewards.add(new RewardEntry("Day 1 Reward", 100.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 2 Reward", 200.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 3 Reward", 300.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 4 Reward", 400.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 5 Reward", 500.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 6 Reward", 600.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 7 Reward (Legendary)", 1000.0, 10, List.of("minecraft:diamond 1"), List.of()));
     }
 
     /**
@@ -30,6 +36,7 @@ public class DailyRewardsConfig {
     public static class RewardEntry {
         public String displayName;
         public double economyPayout;
+        public int weight = 100;
         public List<String> items = new ArrayList<>();
         public List<String> commands = new ArrayList<>();
 
@@ -37,17 +44,23 @@ public class DailyRewardsConfig {
         public RewardEntry() {
             this.displayName = "Daily Reward";
             this.economyPayout = 100.0;
+            this.weight = 100;
             this.items = new ArrayList<>();
             this.commands = new ArrayList<>();
         }
 
         public RewardEntry(String displayName, double economyPayout, List<String> commands) {
-            this(displayName, economyPayout, new ArrayList<>(), commands);
+            this(displayName, economyPayout, 100, new ArrayList<>(), commands);
         }
 
         public RewardEntry(String displayName, double economyPayout, List<String> items, List<String> commands) {
+            this(displayName, economyPayout, 100, items, commands);
+        }
+
+        public RewardEntry(String displayName, double economyPayout, int weight, List<String> items, List<String> commands) {
             this.displayName = displayName;
             this.economyPayout = economyPayout;
+            this.weight = weight;
             this.items = items != null ? items : new ArrayList<>();
             this.commands = commands != null ? commands : new ArrayList<>();
         }

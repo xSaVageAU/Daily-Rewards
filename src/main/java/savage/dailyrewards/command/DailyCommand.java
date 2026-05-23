@@ -62,10 +62,17 @@ public final class DailyCommand {
                 Component.literal("=== Daily Rewards Status ===").withStyle(ChatFormatting.GOLD)
             );
             
-            context.getSource().sendSystemMessage(
-                Component.literal("Current Streak: ").withStyle(ChatFormatting.YELLOW)
-                    .append(Component.literal(state.currentStreak + " / " + maxDays + " days").withStyle(ChatFormatting.GREEN))
-            );
+            if (config.mode == DailyRewardsConfig.RewardMode.STREAK) {
+                context.getSource().sendSystemMessage(
+                    Component.literal("Current Streak: ").withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(state.currentStreak + " / " + maxDays + " days").withStyle(ChatFormatting.GREEN))
+                );
+            } else {
+                context.getSource().sendSystemMessage(
+                    Component.literal("Reward Mode: ").withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal("Mystery Rewards Pool").withStyle(ChatFormatting.LIGHT_PURPLE))
+                );
+            }
 
             if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
                 context.getSource().sendSystemMessage(
@@ -109,26 +116,31 @@ public final class DailyCommand {
             }
 
             int maxDays = config.rewards.isEmpty() ? 7 : config.rewards.size();
+            DailyRewardsConfig.RewardEntry reward;
 
-            // Streak determination with dynamic rollover
-            if (state.lastClaimEpochDay == currentDay - 1) {
-                // Consecutive check-in: Increment streak, rollover to 1 if we exceed maxDays
-                if (state.currentStreak >= maxDays) {
-                    state.currentStreak = 1;
+            if (config.mode == DailyRewardsConfig.RewardMode.STREAK) {
+                // Streak determination with dynamic rollover
+                if (state.lastClaimEpochDay == currentDay - 1) {
+                    // Consecutive check-in: Increment streak, rollover to 1 if we exceed maxDays
+                    if (state.currentStreak >= maxDays) {
+                        state.currentStreak = 1;
+                    } else {
+                        state.currentStreak = state.currentStreak + 1;
+                    }
                 } else {
-                    state.currentStreak = state.currentStreak + 1;
+                    // Streak broken or brand new: Reset to Day 1
+                    state.currentStreak = 1;
+                }
+
+                int index = state.currentStreak - 1;
+                if (index >= 0 && index < config.rewards.size()) {
+                    reward = config.rewards.get(index);
+                } else {
+                    reward = new DailyRewardsConfig.RewardEntry("Day " + state.currentStreak + " Reward", 100.0, List.of());
                 }
             } else {
-                // Streak broken or brand new: Reset to Day 1
-                state.currentStreak = 1;
-            }
-
-            int index = state.currentStreak - 1;
-            DailyRewardsConfig.RewardEntry reward;
-            if (index >= 0 && index < config.rewards.size()) {
-                reward = config.rewards.get(index);
-            } else {
-                reward = new DailyRewardsConfig.RewardEntry("Day " + state.currentStreak + " Reward", 100.0, List.of());
+                // RANDOM mode: Weighted random selection
+                reward = getWeightedRandomReward(config.rewards);
             }
 
             // Lock progress and set last claim day
@@ -222,5 +234,28 @@ public final class DailyCommand {
             );
         }
         return 1;
+    }
+
+    private static DailyRewardsConfig.RewardEntry getWeightedRandomReward(List<DailyRewardsConfig.RewardEntry> rewards) {
+        if (rewards.isEmpty()) {
+            return new DailyRewardsConfig.RewardEntry("Default Reward", 100.0, 100, List.of(), List.of());
+        }
+
+        int totalWeight = 0;
+        for (DailyRewardsConfig.RewardEntry entry : rewards) {
+            totalWeight += Math.max(1, entry.weight);
+        }
+
+        int randomValue = new java.util.Random().nextInt(totalWeight);
+        int currentSum = 0;
+
+        for (DailyRewardsConfig.RewardEntry entry : rewards) {
+            currentSum += Math.max(1, entry.weight);
+            if (randomValue < currentSum) {
+                return entry;
+            }
+        }
+
+        return rewards.get(0);
     }
 }
