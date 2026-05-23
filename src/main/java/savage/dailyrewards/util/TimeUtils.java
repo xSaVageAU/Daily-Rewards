@@ -1,7 +1,7 @@
 package savage.dailyrewards.util;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 /**
  * Utility class for calendar and epoch-day calculations.
@@ -13,11 +13,11 @@ public final class TimeUtils {
     }
 
     /**
-     * Gets the current epoch day based on the server's system default timezone.
+     * Gets the current epoch day based on UTC to prevent timezone exploits.
      *
      * @return the current day as epoch days
      */
     public static long getCurrentEpochDay() {
-        return LocalDate.now(ZoneId.systemDefault()).toEpochDay();
+        return LocalDate.now(ZoneOffset.UTC).toEpochDay();
     }
 }

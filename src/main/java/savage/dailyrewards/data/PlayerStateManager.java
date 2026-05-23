@@ -51,6 +51,12 @@ public final class PlayerStateManager {
         PlayerRewardState state = STATES.get(uuid);
         if (state == null) return;
         
+        // Take a deep-copy snapshot for thread safety
+        PlayerRewardState snapshot;
+        synchronized (state) {
+            snapshot = state.copy();
+        }
+
         EXECUTOR.execute(() -> {
             try {
                 if (!Files.exists(DATA_DIR)) {
@@ -61,7 +67,7 @@ public final class PlayerStateManager {
                 Path tmpFile = DATA_DIR.resolve(uuid.toString() + ".json.tmp");
 
                 try (FileWriter writer = new FileWriter(tmpFile.toFile())) {
-                    GSON.toJson(state, writer);
+                    GSON.toJson(snapshot, writer);
                 }
                 
                 Files.move(tmpFile, playerFile, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
@@ -111,11 +117,15 @@ public final class PlayerStateManager {
                 Files.createDirectories(DATA_DIR);
             }
             STATES.forEach((uuid, state) -> {
+                PlayerRewardState snapshot;
+                synchronized (state) {
+                    snapshot = state.copy();
+                }
                 try {
                     Path playerFile = DATA_DIR.resolve(uuid.toString() + ".json");
                     Path tmpFile = DATA_DIR.resolve(uuid.toString() + ".json.tmp");
                     try (FileWriter writer = new FileWriter(tmpFile.toFile())) {
-                        GSON.toJson(state, writer);
+                        GSON.toJson(snapshot, writer);
                     }
                     Files.move(tmpFile, playerFile, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException e) {

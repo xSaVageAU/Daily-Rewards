@@ -73,9 +73,10 @@ public final class DailyCommand {
             );
             
             if (config.mode == DailyRewardsConfig.RewardMode.STREAK) {
-                int displayStreak = state.currentStreak;
-                if (state.lastClaimEpochDay < currentDay - 1) {
-                    displayStreak = 0;
+                int displayStreak;
+                synchronized (state) {
+                    state.validateStreak(currentDay);
+                    displayStreak = state.currentStreak;
                 }
                 context.getSource().sendSystemMessage(
                     Component.literal("Current Streak: ").withStyle(ChatFormatting.YELLOW)
@@ -122,42 +123,42 @@ public final class DailyCommand {
             DailyRewardsConfig config = ConfigManager.getConfig();
             long currentDay = TimeUtils.getCurrentEpochDay();
 
-            if (state.lastClaimEpochDay >= currentDay) {
-                context.getSource().sendFailure(
-                    Component.literal("You have already claimed today's reward!").withStyle(ChatFormatting.RED)
-                );
-                return 1;
-            }
-
             int maxDays = config.rewards.isEmpty() ? 7 : config.rewards.size();
             DailyRewardsConfig.RewardEntry reward;
 
-            if (config.mode == DailyRewardsConfig.RewardMode.STREAK) {
-                // Immediately clean lingering out-of-date records
-                if (state.lastClaimEpochDay < currentDay - 1) {
-                    state.currentStreak = 0;
+            synchronized (state) {
+                if (state.lastClaimEpochDay >= currentDay) {
+                    context.getSource().sendFailure(
+                        Component.literal("You have already claimed today's reward!").withStyle(ChatFormatting.RED)
+                    );
+                    return 1;
                 }
 
-                // Increment sequentially or execute loop-around caps
-                if (state.currentStreak >= maxDays) {
-                    state.currentStreak = 1;
+                if (config.mode == DailyRewardsConfig.RewardMode.STREAK) {
+                    state.validateStreak(currentDay);
+
+                    // Increment sequentially or execute loop-around caps
+                    if (state.currentStreak >= maxDays) {
+                        state.currentStreak = 1;
+                    } else {
+                        state.currentStreak++;
+                    }
+
+                    int index = state.currentStreak - 1;
+                    if (index >= 0 && index < config.rewards.size()) {
+                        reward = config.rewards.get(index);
+                    } else {
+                        reward = new DailyRewardsConfig.RewardEntry("Day " + state.currentStreak + " Reward", 100.0, List.of());
+                    }
                 } else {
-                    state.currentStreak++;
+                    // RANDOM mode: Weighted random selection
+                    reward = getWeightedRandomReward(config.rewards);
                 }
 
-                int index = state.currentStreak - 1;
-                if (index >= 0 && index < config.rewards.size()) {
-                    reward = config.rewards.get(index);
-                } else {
-                    reward = new DailyRewardsConfig.RewardEntry("Day " + state.currentStreak + " Reward", 100.0, List.of());
-                }
-            } else {
-                // RANDOM mode: Weighted random selection
-                reward = getWeightedRandomReward(config.rewards);
+                // Lock progress and set last claim day
+                state.lastClaimEpochDay = currentDay;
             }
-
-            // Lock progress and set last claim day
-            state.lastClaimEpochDay = currentDay;
+            
             PlayerStateManager.save(player.getUUID());
 
             // Run console commands
@@ -196,7 +197,10 @@ public final class DailyCommand {
                     }
                     
                     try {
-                        Identifier itemId = Identifier.parse(itemIdStr);
+                        Identifier itemId = Identifier.tryParse(itemIdStr);
+                        if (itemId == null) {
+                            continue;
+                        }
                         Item item = BuiltInRegistries.ITEM.get(itemId)
                             .map(net.minecraft.core.Holder::value)
                             .orElse(Items.AIR);
