@@ -63,9 +63,13 @@ public final class DailyCommand {
             );
             
             if (config.mode == DailyRewardsConfig.RewardMode.STREAK) {
+                int displayStreak = state.currentStreak;
+                if (state.lastClaimEpochDay < currentDay - 1) {
+                    displayStreak = 0;
+                }
                 context.getSource().sendSystemMessage(
                     Component.literal("Current Streak: ").withStyle(ChatFormatting.YELLOW)
-                        .append(Component.literal(state.currentStreak + " / " + maxDays + " days").withStyle(ChatFormatting.GREEN))
+                        .append(Component.literal(displayStreak + " / " + maxDays + " days").withStyle(ChatFormatting.GREEN))
                 );
             } else {
                 context.getSource().sendSystemMessage(
@@ -74,7 +78,7 @@ public final class DailyCommand {
                 );
             }
 
-            if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
+            if (state.lastClaimEpochDay >= currentDay) {
                 context.getSource().sendSystemMessage(
                     Component.literal("You have already claimed today's reward!").withStyle(ChatFormatting.RED)
                 );
@@ -108,7 +112,7 @@ public final class DailyCommand {
             DailyRewardsConfig config = ConfigManager.getConfig();
             long currentDay = TimeUtils.getCurrentEpochDay();
 
-            if (state.claimedToday || state.lastClaimEpochDay >= currentDay) {
+            if (state.lastClaimEpochDay >= currentDay) {
                 context.getSource().sendFailure(
                     Component.literal("You have already claimed today's reward!").withStyle(ChatFormatting.RED)
                 );
@@ -144,7 +148,6 @@ public final class DailyCommand {
             }
 
             // Lock progress and set last claim day
-            state.claimedToday = true;
             state.lastClaimEpochDay = currentDay;
             PlayerStateManager.save();
 

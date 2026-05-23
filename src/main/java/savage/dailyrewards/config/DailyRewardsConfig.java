@@ -13,7 +13,6 @@ public class DailyRewardsConfig {
         RANDOM
     }
 
-    public int resetHour = 0;
     public String economyProvider = "savs_common_economy";
     public String currencyId = "dollar";
     public RewardMode mode = RewardMode.STREAK;

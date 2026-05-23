@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.fabricmc.loader.api.FabricLoader;
 import savage.dailyrewards.DailyRewards;
-import savage.dailyrewards.util.TimeUtils;
 
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -104,25 +103,10 @@ public final class PlayerStateManager {
      * @return the associated daily reward state
      */
     public static PlayerRewardState getOrCreateState(UUID uuid, String username) {
-        long currentDay = TimeUtils.getCurrentEpochDay();
         PlayerRewardState state = STATES.computeIfAbsent(uuid, k -> new PlayerRewardState(username));
 
         if (username != null && !username.isEmpty()) {
             state.username = username;
-        }
-
-        // Streak Reset Check:
-        // If their last claim day was before yesterday, they missed their streak check-in window.
-        if (state.lastClaimEpochDay < currentDay - 1) {
-            state.currentStreak = 0;
-        }
-
-        // Daily Reset Check:
-        // If their last active day is in the past, reset claim availability.
-        if (state.lastActiveEpochDay < currentDay) {
-            state.claimedToday = false;
-            state.lastActiveEpochDay = currentDay;
-            save(); // Trigger background write for state transition
         }
 
         return state;

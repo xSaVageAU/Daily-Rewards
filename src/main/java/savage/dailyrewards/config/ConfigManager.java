@@ -28,10 +28,6 @@ public final class ConfigManager {
             #   Daily Rewards Configuration
             # =========================================================================
             
-            # The hour of the day (0-23) when the daily rewards cycle resets.
-            # Default: 0 (Midnight)
-            resetHour = 0
-            
             # The economy provider to use for cash payouts.
             # Must match a provider registered in Patbox's Common Economy API.
             # Default: "savs_common_economy"
@@ -145,9 +141,6 @@ public final class ConfigManager {
             Toml toml = new Toml().read(file);
             DailyRewardsConfig loaded = new DailyRewardsConfig();
 
-            if (toml.contains("resetHour")) {
-                loaded.resetHour = toml.getLong("resetHour").intValue();
-            }
             if (toml.contains("economyProvider")) {
                 loaded.economyProvider = toml.getString("economyProvider");
             }
