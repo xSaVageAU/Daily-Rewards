@@ -25,8 +25,8 @@ import java.util.concurrent.Executors;
 public final class PlayerStateManager {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-    private static final Path DATA_DIR = FabricLoader.getInstance().getConfigDir().resolve("dailyrewards");
-    private static final Path DATA_FILE = DATA_DIR.resolve("players.json");
+    private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("dailyrewards");
+    private static final Path DATA_DIR = CONFIG_DIR.resolve("playerdata");
     
     private static final ConcurrentHashMap<UUID, PlayerRewardState> STATES = new ConcurrentHashMap<>();
     
@@ -37,59 +37,36 @@ public final class PlayerStateManager {
         // Prevent instantiation
     }
 
-    /**
-     * Loads the players state registry from disk.
-     */
     public static void load() {
         try {
             if (!Files.exists(DATA_DIR)) {
                 Files.createDirectories(DATA_DIR);
             }
-            if (!Files.exists(DATA_FILE)) {
-                DailyRewards.LOGGER.info("Player daily rewards database not found. Starting with a fresh database.");
-                return;
-            }
-
-            try (FileReader reader = new FileReader(DATA_FILE.toFile())) {
-                Type type = new TypeToken<Map<String, PlayerRewardState>>() {}.getType();
-                Map<String, PlayerRewardState> rawMap = GSON.fromJson(reader, type);
-                if (rawMap != null) {
-                    STATES.clear();
-                    rawMap.forEach((uuidStr, state) -> {
-                        try {
-                            STATES.put(UUID.fromString(uuidStr), state);
-                        } catch (IllegalArgumentException e) {
-                            DailyRewards.LOGGER.error("Failed to parse UUID string: {}", uuidStr, e);
-                        }
-                    });
-                }
-            }
         } catch (IOException e) {
-            DailyRewards.LOGGER.error("Failed to load player rewards data", e);
+            DailyRewards.LOGGER.error("Failed to create player data directory", e);
         }
     }
 
-    /**
-     * Saves the current active states asynchronously via a virtual thread.
-     */
-    public static void save() {
+    public static void save(UUID uuid) {
+        PlayerRewardState state = STATES.get(uuid);
+        if (state == null) return;
+        
         EXECUTOR.execute(() -> {
-            synchronized (PlayerStateManager.class) {
-                try {
-                    if (!Files.exists(DATA_DIR)) {
-                        Files.createDirectories(DATA_DIR);
-                    }
-                    
-                    // Convert UUID keys to String representation for clean JSON serialization
-                    Map<String, PlayerRewardState> rawMap = new HashMap<>();
-                    STATES.forEach((uuid, state) -> rawMap.put(uuid.toString(), state));
-
-                    try (FileWriter writer = new FileWriter(DATA_FILE.toFile())) {
-                        GSON.toJson(rawMap, writer);
-                    }
-                } catch (IOException e) {
-                    DailyRewards.LOGGER.error("Failed to save player rewards data asynchronously", e);
+            try {
+                if (!Files.exists(DATA_DIR)) {
+                    Files.createDirectories(DATA_DIR);
                 }
+                
+                Path playerFile = DATA_DIR.resolve(uuid.toString() + ".json");
+                Path tmpFile = DATA_DIR.resolve(uuid.toString() + ".json.tmp");
+
+                try (FileWriter writer = new FileWriter(tmpFile.toFile())) {
+                    GSON.toJson(state, writer);
+                }
+                
+                Files.move(tmpFile, playerFile, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                DailyRewards.LOGGER.error("Failed to save player data asynchronously for {}", uuid, e);
             }
         });
     }
@@ -97,36 +74,50 @@ public final class PlayerStateManager {
     /**
      * Fetches or initializes a player's daily reward progress. Automatically triggers 
      * streak updates and daily resets as epoch days change.
-     *
-     * @param uuid the player's UUID
-     * @param username the player's username
-     * @return the associated daily reward state
      */
     public static PlayerRewardState getOrCreateState(UUID uuid, String username) {
-        PlayerRewardState state = STATES.computeIfAbsent(uuid, k -> new PlayerRewardState(username));
-
-        if (username != null && !username.isEmpty()) {
-            state.username = username;
-        }
-
-        return state;
+        return STATES.computeIfAbsent(uuid, k -> {
+            PlayerRewardState state = loadPlayer(uuid);
+            if (state == null) {
+                state = new PlayerRewardState(username);
+            }
+            if (username != null && !username.isEmpty()) {
+                state.username = username;
+            }
+            return state;
+        });
     }
 
-    /**
-     * Executes final blocking save and shuts down background execution services.
-     */
+    private static PlayerRewardState loadPlayer(UUID uuid) {
+        Path playerFile = DATA_DIR.resolve(uuid.toString() + ".json");
+        if (Files.exists(playerFile)) {
+            try (FileReader reader = new FileReader(playerFile.toFile())) {
+                return GSON.fromJson(reader, PlayerRewardState.class);
+            } catch (Exception e) {
+                DailyRewards.LOGGER.error("Failed to load player data for UUID {}", uuid, e);
+            }
+        }
+        return null;
+    }
+
     public static void shutdown() {
         // Blocking write to guarantee saving during server stop
         try {
             if (!Files.exists(DATA_DIR)) {
                 Files.createDirectories(DATA_DIR);
             }
-            Map<String, PlayerRewardState> rawMap = new HashMap<>();
-            STATES.forEach((uuid, state) -> rawMap.put(uuid.toString(), state));
-
-            try (FileWriter writer = new FileWriter(DATA_FILE.toFile())) {
-                GSON.toJson(rawMap, writer);
-            }
+            STATES.forEach((uuid, state) -> {
+                try {
+                    Path playerFile = DATA_DIR.resolve(uuid.toString() + ".json");
+                    Path tmpFile = DATA_DIR.resolve(uuid.toString() + ".json.tmp");
+                    try (FileWriter writer = new FileWriter(tmpFile.toFile())) {
+                        GSON.toJson(state, writer);
+                    }
+                    Files.move(tmpFile, playerFile, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException e) {
+                    DailyRewards.LOGGER.error("Failed to save player data for {} during shutdown", uuid, e);
+                }
+            });
         } catch (IOException e) {
             DailyRewards.LOGGER.error("Failed to execute final database save during shutdown", e);
         }

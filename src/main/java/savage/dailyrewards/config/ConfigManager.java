@@ -125,21 +125,34 @@ public final class ConfigManager {
                 Files.writeString(CONFIG_FILE, DEFAULT_TOML_CONFIG);
                 config = new DailyRewardsConfig();
             } else {
-                parseConfig(file);
+                try {
+                    parseConfig(file);
+                } catch (Exception ex) {
+                    DailyRewards.LOGGER.error("Failed to parse config.toml! Backing up to config.toml.broken and generating default.", ex);
+                    Path brokenFile = CONFIG_DIR.resolve("config.toml.broken");
+                    if (Files.exists(brokenFile)) {
+                        Files.delete(brokenFile);
+                    }
+                    Files.move(CONFIG_FILE, brokenFile);
+                    Files.writeString(CONFIG_FILE, DEFAULT_TOML_CONFIG);
+                    config = new DailyRewardsConfig();
+                }
             }
         } catch (Exception e) {
-            DailyRewards.LOGGER.error("Failed to load daily rewards configuration", e);
-            config = new DailyRewardsConfig();
+            DailyRewards.LOGGER.error("Critical error during config load phase", e);
+            if (config == null) {
+                config = new DailyRewardsConfig();
+            }
         }
     }
 
     /**
-     * Manually and safely parses the TOML file into the config data object to avoid class coercion/reflection issues.
+     * Manually and safely parses the TOML file into the config data object.
+     * Throws an exception if the file is invalid so it can be backed up.
      */
-    private static void parseConfig(File file) {
-        try {
-            Toml toml = new Toml().read(file);
-            DailyRewardsConfig loaded = new DailyRewardsConfig();
+    private static void parseConfig(File file) throws Exception {
+        Toml toml = new Toml().read(file);
+        DailyRewardsConfig loaded = new DailyRewardsConfig();
 
             if (toml.contains("economyProvider")) {
                 loaded.economyProvider = toml.getString("economyProvider");
@@ -187,10 +200,6 @@ public final class ConfigManager {
             }
 
             config = loaded;
-        } catch (Exception e) {
-            DailyRewards.LOGGER.error("Error parsing config.toml. Falling back to default configuration.", e);
-            config = new DailyRewardsConfig();
-        }
     }
 
     /**

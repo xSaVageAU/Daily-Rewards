@@ -8,6 +8,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permissions;
 import savage.dailyrewards.config.ConfigManager;
 import savage.dailyrewards.config.DailyRewardsConfig;
 import savage.dailyrewards.data.PlayerRewardState;
@@ -43,9 +44,18 @@ public final class DailyCommand {
                 .then(Commands.literal("status")
                         .executes(DailyCommand::showStatus))
                 .then(Commands.literal("claim")
-                        .executes(DailyCommand::claimReward));
+                        .executes(DailyCommand::claimReward))
+                .then(Commands.literal("reload")
+                        .requires(s -> s.permissions().hasPermission(Permissions.COMMANDS_ADMIN))
+                        .executes(DailyCommand::reloadConfig));
 
         dispatcher.register(dailyNode);
+    }
+
+    private static int reloadConfig(CommandContext<CommandSourceStack> context) {
+        ConfigManager.load();
+        context.getSource().sendSystemMessage(Component.literal("Daily Rewards configuration reloaded.").withStyle(ChatFormatting.GREEN));
+        return 1;
     }
 
     private static int showStatus(CommandContext<CommandSourceStack> context) {
@@ -149,7 +159,7 @@ public final class DailyCommand {
 
             // Lock progress and set last claim day
             state.lastClaimEpochDay = currentDay;
-            PlayerStateManager.save();
+            PlayerStateManager.save(player.getUUID());
 
             // Run console commands
             var server = context.getSource().getServer();
@@ -162,7 +172,10 @@ public final class DailyCommand {
 
             // Execute economy integration payouts (returns formatted component or null)
             double payout = reward.economyPayout;
-            Component formattedDeposit = EconomyIntegration.payout(player, payout);
+            Component formattedDeposit = null;
+            if (payout > 0) {
+                formattedDeposit = EconomyIntegration.payout(player, payout);
+            }
 
             // Deliver native items
             List<Component> claimedItemComponents = new ArrayList<>();
@@ -249,7 +262,7 @@ public final class DailyCommand {
             totalWeight += Math.max(1, entry.weight);
         }
 
-        int randomValue = new java.util.Random().nextInt(totalWeight);
+        int randomValue = java.util.concurrent.ThreadLocalRandom.current().nextInt(totalWeight);
         int currentSum = 0;
 
         for (DailyRewardsConfig.RewardEntry entry : rewards) {
