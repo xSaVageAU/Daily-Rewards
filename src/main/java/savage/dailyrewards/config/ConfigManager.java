@@ -37,6 +37,11 @@ public final class ConfigManager {
             # Default: "dollar"
             currencyId = "dollar"
             
+            # The timezone used to determine when the daily reset (midnight) happens.
+            # Leave blank "" to automatically use the server's system default timezone.
+            # Example: "America/New_York" or "Europe/London" or "UTC"
+            timezone = ""
+            
             # The mode of the daily rewards system.
             # Options: "STREAK" (sequential daily progression) or "RANDOM" (weighted mystery pool)
             # Default: "STREAK"
@@ -159,6 +164,9 @@ public final class ConfigManager {
             }
             if (toml.contains("currencyId")) {
                 loaded.currencyId = toml.getString("currencyId");
+            }
+            if (toml.contains("timezone")) {
+                loaded.timezone = toml.getString("timezone");
             }
             if (toml.contains("mode")) {
                 try {
