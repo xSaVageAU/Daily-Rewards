@@ -21,12 +21,12 @@ public class DailyRewardsConfig {
     public DailyRewardsConfig() {
         // Initialize default rewards for a 7-day cycle in sequential order
         rewards.add(new RewardEntry("Day 1 Reward", 100.0, 100, List.of(), List.of()));
-        rewards.add(new RewardEntry("Day 2 Reward", 200.0, 100, List.of(), List.of()));
-        rewards.add(new RewardEntry("Day 3 Reward", 300.0, 100, List.of(), List.of()));
-        rewards.add(new RewardEntry("Day 4 Reward", 400.0, 100, List.of(), List.of()));
-        rewards.add(new RewardEntry("Day 5 Reward", 500.0, 100, List.of(), List.of()));
-        rewards.add(new RewardEntry("Day 6 Reward", 600.0, 100, List.of(), List.of()));
-        rewards.add(new RewardEntry("Day 7 Reward (Legendary)", 1000.0, 10, List.of("minecraft:diamond 1"), List.of()));
+        rewards.add(new RewardEntry("Day 2 Reward", 150.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 3 Reward", 200.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 4 Reward", 250.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 5 Reward", 300.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 6 Reward", 400.0, 100, List.of(), List.of()));
+        rewards.add(new RewardEntry("Day 7 Reward (Legendary)", 500.0, 10, List.of("minecraft:diamond 1"), List.of()));
     }
 
     /**

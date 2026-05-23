@@ -63,42 +63,42 @@ public final class ConfigManager {
             
             [[rewards]]
             displayName = "Day 2 Reward"
-            economyPayout = 200.0
+            economyPayout = 150.0
             weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 3 Reward"
-            economyPayout = 300.0
+            economyPayout = 200.0
             weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 4 Reward"
-            economyPayout = 400.0
+            economyPayout = 250.0
             weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 5 Reward"
-            economyPayout = 500.0
+            economyPayout = 300.0
             weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 6 Reward"
-            economyPayout = 600.0
+            economyPayout = 400.0
             weight = 100
             items = []
             commands = []
             
             [[rewards]]
             displayName = "Day 7 Reward (Legendary)"
-            economyPayout = 1000.0
+            economyPayout = 500.0
             weight = 10
             items = [
                 "minecraft:diamond 1"
