@@ -100,6 +100,10 @@ public final class PlayerStateManager {
         return null;
     }
 
+    public static void evict(UUID uuid) {
+        STATES.remove(uuid);
+    }
+
     public static void shutdown() {
         // Blocking write to guarantee saving during server stop
         try {

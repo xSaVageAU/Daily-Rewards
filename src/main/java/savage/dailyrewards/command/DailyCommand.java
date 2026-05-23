@@ -133,17 +133,16 @@ public final class DailyCommand {
             DailyRewardsConfig.RewardEntry reward;
 
             if (config.mode == DailyRewardsConfig.RewardMode.STREAK) {
-                // Streak determination with dynamic rollover
-                if (state.lastClaimEpochDay == currentDay - 1) {
-                    // Consecutive check-in: Increment streak, rollover to 1 if we exceed maxDays
-                    if (state.currentStreak >= maxDays) {
-                        state.currentStreak = 1;
-                    } else {
-                        state.currentStreak = state.currentStreak + 1;
-                    }
-                } else {
-                    // Streak broken or brand new: Reset to Day 1
+                // Immediately clean lingering out-of-date records
+                if (state.lastClaimEpochDay < currentDay - 1) {
+                    state.currentStreak = 0;
+                }
+
+                // Increment sequentially or execute loop-around caps
+                if (state.currentStreak >= maxDays) {
                     state.currentStreak = 1;
+                } else {
+                    state.currentStreak++;
                 }
 
                 int index = state.currentStreak - 1;

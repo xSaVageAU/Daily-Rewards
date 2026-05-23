@@ -34,6 +34,13 @@ public class DailyRewards implements ModInitializer {
 			PlayerStateManager.shutdown();
 		});
 
+		// Free memory and ensure save on player disconnect
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			java.util.UUID playerUuid = handler.getPlayer().getUUID();
+			PlayerStateManager.save(playerUuid);
+			PlayerStateManager.evict(playerUuid);
+		});
+
 		LOGGER.info("Daily Rewards Mod initialized successfully!");
 	}
 }
