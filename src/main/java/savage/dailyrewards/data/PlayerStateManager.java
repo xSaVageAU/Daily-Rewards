@@ -1,48 +1,111 @@
 package savage.dailyrewards.data;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import net.fabricmc.loader.api.FabricLoader;
 import savage.dailyrewards.DailyRewards;
+import savage.dailyrewards.config.ConfigManager;
 
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Manages player states and coordinates high-performance background file IO.
+ * Manages player states in a thread-safe cache and coordinates saving/loading
+ * operations via an active PlayerStateStorage provider backend.
  */
 public final class PlayerStateManager {
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-    private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("dailyrewards");
-    private static final Path DATA_DIR = CONFIG_DIR.resolve("playerdata");
-    
+    private static final ConcurrentHashMap<String, PlayerStateStorage> PROVIDERS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<UUID, PlayerRewardState> STATES = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap.KeySetView<UUID, Boolean> LOADING = ConcurrentHashMap.newKeySet();
     
-    // Executor using Java Virtual Threads for background file operations (JDK 25)
+    // Executor using Java Virtual Threads for background storage operations (JDK 25)
     private static final ExecutorService EXECUTOR = Executors.newVirtualThreadPerTaskExecutor();
+    
+    private static PlayerStateStorage activeStorage;
+
+    static {
+        // Register the default local JSON file-based storage
+        registerProvider("JSON", new JsonPlayerStateStorage());
+    }
 
     private PlayerStateManager() {
         // Prevent instantiation
     }
 
+    /**
+     * Registers a new storage provider under the given name.
+     *
+     * @param name     the provider identifier name (case-insensitive)
+     * @param provider the PlayerStateStorage instance
+     */
+    public static void registerProvider(String name, PlayerStateStorage provider) {
+        PROVIDERS.put(name.toUpperCase(), provider);
+    }
+
+    /**
+     * Initializes the manager, resolving and loading the configured storage provider.
+     */
     public static void load() {
-        try {
-            if (!Files.exists(DATA_DIR)) {
-                Files.createDirectories(DATA_DIR);
-            }
-        } catch (IOException e) {
-            DailyRewards.LOGGER.error("Failed to create player data directory", e);
+        String storageType = ConfigManager.getConfig().storageType.toUpperCase();
+        activeStorage = PROVIDERS.get(storageType);
+        
+        if (activeStorage == null) {
+            DailyRewards.LOGGER.warn("Unknown storage type '{}'. Defaulting to JSON.", storageType);
+            activeStorage = PROVIDERS.get("JSON");
+        }
+        
+        if (activeStorage != null) {
+            activeStorage.init();
         }
     }
 
+    /**
+     * Asynchronously pre-loads player state into the in-memory cache upon player join.
+     * This eliminates storage IO overhead when they run reward commands.
+     *
+     * @param uuid     the player's unique ID
+     * @param username the player's username
+     */
+    public static void preLoad(UUID uuid, String username) {
+        if (STATES.containsKey(uuid)) return;
+
+        LOADING.add(uuid);
+        EXECUTOR.execute(() -> {
+            try {
+                PlayerRewardState state = null;
+                if (activeStorage != null) {
+                    state = activeStorage.loadState(uuid);
+                }
+                if (state == null) {
+                    state = new PlayerRewardState(username);
+                }
+                if (username != null && !username.isEmpty()) {
+                    state.username = username;
+                }
+                STATES.put(uuid, state);
+            } catch (Exception e) {
+                DailyRewards.LOGGER.error("Failed to preload player data for {}", uuid, e);
+            } finally {
+                LOADING.remove(uuid);
+            }
+        });
+    }
+
+    /**
+     * Checks if a player's state is currently being loaded asynchronously in the background.
+     *
+     * @param uuid the player's unique ID
+     * @return true if the player state is loading, false otherwise
+     */
+    public static boolean isLoading(UUID uuid) {
+        return LOADING.contains(uuid);
+    }
+
+    /**
+     * Asynchronously saves a player's current state to the active storage provider.
+     *
+     * @param uuid the player's unique ID
+     */
     public static void save(UUID uuid) {
         PlayerRewardState state = STATES.get(uuid);
         if (state == null) return;
@@ -55,19 +118,10 @@ public final class PlayerStateManager {
 
         EXECUTOR.execute(() -> {
             try {
-                if (!Files.exists(DATA_DIR)) {
-                    Files.createDirectories(DATA_DIR);
+                if (activeStorage != null) {
+                    activeStorage.saveState(uuid, snapshot);
                 }
-                
-                Path playerFile = DATA_DIR.resolve(uuid.toString() + ".json");
-                Path tmpFile = DATA_DIR.resolve(uuid.toString() + ".json.tmp");
-
-                try (FileWriter writer = new FileWriter(tmpFile.toFile())) {
-                    GSON.toJson(snapshot, writer);
-                }
-                
-                Files.move(tmpFile, playerFile, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 DailyRewards.LOGGER.error("Failed to save player data asynchronously for {}", uuid, e);
             }
         });
@@ -76,10 +130,17 @@ public final class PlayerStateManager {
     /**
      * Fetches or initializes a player's daily reward progress. Automatically triggers 
      * streak updates and daily resets as epoch days change.
+     *
+     * @param uuid     the player's unique ID
+     * @param username the player's username
+     * @return the cached or newly loaded reward state
      */
     public static PlayerRewardState getOrCreateState(UUID uuid, String username) {
         return STATES.computeIfAbsent(uuid, k -> {
-            PlayerRewardState state = loadPlayer(uuid);
+            PlayerRewardState state = null;
+            if (activeStorage != null) {
+                state = activeStorage.loadState(uuid);
+            }
             if (state == null) {
                 state = new PlayerRewardState(username);
             }
@@ -90,46 +151,40 @@ public final class PlayerStateManager {
         });
     }
 
-    private static PlayerRewardState loadPlayer(UUID uuid) {
-        Path playerFile = DATA_DIR.resolve(uuid.toString() + ".json");
-        if (Files.exists(playerFile)) {
-            try (FileReader reader = new FileReader(playerFile.toFile())) {
-                return GSON.fromJson(reader, PlayerRewardState.class);
-            } catch (Exception e) {
-                DailyRewards.LOGGER.error("Failed to load player data for UUID {}", uuid, e);
-            }
-        }
-        return null;
-    }
-
+    /**
+     * Evicts a player's state from the in-memory cache.
+     *
+     * @param uuid the player's unique ID
+     */
     public static void evict(UUID uuid) {
         STATES.remove(uuid);
+        LOADING.remove(uuid);
     }
 
+    /**
+     * Executes final blocking saves for all cached states and shuts down the storage provider.
+     */
     public static void shutdown() {
-        // Blocking write to guarantee saving during server stop
         try {
-            if (!Files.exists(DATA_DIR)) {
-                Files.createDirectories(DATA_DIR);
-            }
             STATES.forEach((uuid, state) -> {
                 PlayerRewardState snapshot;
                 synchronized (state) {
                     snapshot = state.copy();
                 }
                 try {
-                    Path playerFile = DATA_DIR.resolve(uuid.toString() + ".json");
-                    Path tmpFile = DATA_DIR.resolve(uuid.toString() + ".json.tmp");
-                    try (FileWriter writer = new FileWriter(tmpFile.toFile())) {
-                        GSON.toJson(snapshot, writer);
+                    if (activeStorage != null) {
+                        activeStorage.saveState(uuid, snapshot);
                     }
-                    Files.move(tmpFile, playerFile, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                } catch (IOException e) {
+                } catch (Exception e) {
                     DailyRewards.LOGGER.error("Failed to save player data for {} during shutdown", uuid, e);
                 }
             });
-        } catch (IOException e) {
+        } catch (Exception e) {
             DailyRewards.LOGGER.error("Failed to execute final database save during shutdown", e);
+        }
+        
+        if (activeStorage != null) {
+            activeStorage.shutdown();
         }
         
         EXECUTOR.shutdown();

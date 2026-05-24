@@ -16,6 +16,7 @@ public class DailyRewardsConfig {
     public String economyProvider = "savs_common_economy";
     public String currencyId = "dollar";
     public String timezone = "";
+    public String storageType = "JSON";
     public RewardMode mode = RewardMode.STREAK;
     public List<RewardEntry> rewards = new ArrayList<>();
 

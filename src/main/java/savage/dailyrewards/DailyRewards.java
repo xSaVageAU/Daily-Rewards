@@ -3,11 +3,15 @@ package savage.dailyrewards;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import savage.dailyrewards.command.DailyCommand;
 import savage.dailyrewards.config.ConfigManager;
 import savage.dailyrewards.data.PlayerStateManager;
+
+import java.util.UUID;
 
 public class DailyRewards implements ModInitializer {
 	public static final String MOD_ID = "daily-rewards";
@@ -34,9 +38,15 @@ public class DailyRewards implements ModInitializer {
 			PlayerStateManager.shutdown();
 		});
 
+		// Pre-load player daily rewards state asynchronously upon connect to avoid main-thread IO lag
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			ServerPlayer player = handler.getPlayer();
+			PlayerStateManager.preLoad(player.getUUID(), player.getGameProfile().name());
+		});
+
 		// Free memory and ensure save on player disconnect
-		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
-			java.util.UUID playerUuid = handler.getPlayer().getUUID();
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			UUID playerUuid = handler.getPlayer().getUUID();
 			PlayerStateManager.save(playerUuid);
 			PlayerStateManager.evict(playerUuid);
 		});

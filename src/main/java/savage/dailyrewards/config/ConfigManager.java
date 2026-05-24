@@ -42,6 +42,10 @@ public final class ConfigManager {
             # Example: "America/New_York" or "Europe/London" or "UTC"
             timezone = ""
             
+            # The storage method to use for saving player reward states.
+            # Default: "JSON" (isolated local files). Future options can include "NATS", "SQL", etc.
+            storageType = "JSON"
+            
             # The mode of the daily rewards system.
             # Options: "STREAK" (sequential daily progression) or "RANDOM" (weighted mystery pool)
             # Default: "STREAK"
@@ -167,6 +171,9 @@ public final class ConfigManager {
             }
             if (toml.contains("timezone")) {
                 loaded.timezone = toml.getString("timezone");
+            }
+            if (toml.contains("storageType")) {
+                loaded.storageType = toml.getString("storageType");
             }
             if (toml.contains("mode")) {
                 try {

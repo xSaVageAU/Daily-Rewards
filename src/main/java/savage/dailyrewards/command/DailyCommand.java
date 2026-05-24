@@ -59,6 +59,14 @@ public final class DailyCommand {
     private static int executeDaily(CommandContext<CommandSourceStack> context) {
         try {
             ServerPlayer player = context.getSource().getPlayerOrException();
+            
+            if (PlayerStateManager.isLoading(player.getUUID())) {
+                context.getSource().sendFailure(
+                    Component.literal("Your daily rewards profile is still loading. Please try again in a moment!").withStyle(ChatFormatting.RED)
+                );
+                return 1;
+            }
+
             PlayerRewardState state = PlayerStateManager.getOrCreateState(player.getUUID(), player.getGameProfile().name());
             DailyRewardsConfig config = ConfigManager.getConfig();
             long currentDay = TimeUtils.getCurrentEpochDay();
