@@ -107,7 +107,11 @@ public final class DailyCommand {
         }
 
         source.sendSystemMessage(Component.literal("You have already claimed today's reward!").withStyle(ChatFormatting.RED));
-        source.sendSystemMessage(Component.literal("Come back tomorrow for your next reward.").withStyle(ChatFormatting.GRAY));
+        
+        String timeLeft = TimeUtils.getTimeUntilNextReset();
+        source.sendSystemMessage(Component.literal("Next reset in: ").withStyle(ChatFormatting.GRAY)
+            .append(Component.literal(timeLeft).withStyle(ChatFormatting.AQUA)));
+            
         source.sendSystemMessage(Component.literal("===========================").withStyle(ChatFormatting.GOLD));
     }
 
