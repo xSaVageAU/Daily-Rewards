@@ -1,6 +1,6 @@
 # Daily Rewards (Fabric)
 
-A Daily Rewards mod built for Minecraft 26.1.x (Year.Drop). 
+A Daily Rewards mod built for Minecraft 26.2. 
 Reward your players for logging in daily with a configurable system.
 
 ## Features
@@ -48,7 +48,7 @@ Rewards are customizable. You can configure multiple days (for Streaks) or multi
 
 ## Building from Source
 
-This project requires JDK 25+ and is built on the Fabric Loader (Minecraft 26.1.x / Mappings 26.1.2).
+This project requires JDK 25+ and is built on the Fabric Loader (Minecraft 26.2 / Mappings 26.2).
 
 1. Clone the repository.
 2. Run `./gradlew build`
